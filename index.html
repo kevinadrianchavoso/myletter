@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letter4U ✨</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #ffafcc; --secondary: #a2d2ff; --bg: #fefae0; --text: #5b5b5b; }
+        
+        body { background-color: var(--bg); font-family: 'Quicksand', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; color: var(--text); }
+        .container { background: white; padding: 2.5rem; border-radius: 30px; box-shadow: 0 10px 40px rgba(255, 175, 204, 0.4); width: 90%; max-width: 450px; text-align: center; border: 6px solid var(--primary); }
+        h1 { font-family: 'Pacifico', cursive; color: var(--primary); font-size: 2.2rem; margin: 0 0 1rem; }
+        
+        .input-group { margin-bottom: 1rem; text-align: left; }
+        textarea, input { width: 100%; padding: 12px; border: 2px solid var(--secondary); border-radius: 15px; font-family: inherit; box-sizing: border-box; outline: none; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 50px; font-weight: 600; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 10px rgba(255, 175, 204, 0.3); }
+        button:hover { transform: scale(1.05); background: #ff8fab; }
+        
+        .hidden { display: none; }
+        
+        /* The Letter Content & Character Animation */
+        .letter-content { 
+            font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap; 
+            padding: 20px; background: #fffafa; border: 2px dashed var(--primary); 
+            border-radius: 15px; margin: 15px 0; text-align: left;
+        }
+
+        /* Individual character animation */
+        .char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: letter-pop 0.4s forwards;
+        }
+
+        @keyframes letter-pop {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Envelope Styling */
+        .envelope-wrapper { cursor: pointer; transition: transform 0.3s; margin: 20px 0; }
+        .envelope-wrapper:hover { transform: scale(1.1); }
+        .envelope-icon { font-size: 80px; display: block; }
+
+        /* History Section */
+        .history-section { margin-top: 30px; width: 90%; max-width: 450px; background: white; border-radius: 20px; padding: 15px; border: 3px solid var(--secondary); }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; font-size: 0.8rem; }
+        .history-item:last-child { border-bottom: none; }
+        .copy-btn { background: var(--secondary); padding: 5px 10px; font-size: 0.7rem; }
+
+        #result-section { margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 15px; }
+        #player { position: absolute; top: -999px; visibility: hidden; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="maker-view">
+        <h1>Letter4U 🎀</h1>
+        <div class="input-group">
+            <label>YouTube Link (Background Music):</label>
+            <input type="text" id="yt-link" placeholder="Paste link here...">
+        </div>
+        <div class="input-group">
+            <label>Your Message:</label>
+            <textarea id="message" rows="4" placeholder="Type your cute letter..."></textarea>
+        </div>
+        <button onclick="createLink()">Generate Link ✨</button>
+        <div id="result-section" class="hidden">
+            <p style="font-size: 0.8rem; margin: 0;">Link Created! It's saved below too.</p>
+            <input type="text" id="share-url" readonly onclick="this.select()">
+        </div>
+    </div>
+
+    <div id="envelope-view" class="hidden">
+        <h1>You have a letter!</h1>
+        <div class="envelope-wrapper" onclick="openEnvelope()">
+            <span class="envelope-icon">✉️</span>
+            <p><strong>Click to open</strong></p>
+        </div>
+    </div>
+
+    <div id="letter-view" class="hidden">
+        <h1>A Special Letter 💌</h1>
+        <div class="letter-content" id="display-text"></div>
+        <p id="music-msg" style="font-size: 0.8rem; color: var(--secondary); margin-top: 5px;"></p>
+        <br>
+        <button onclick="location.href=location.pathname" style="background: #ddd; color: #555; font-size: 0.8rem;">Make Your Own</button>
+    </div>
+</div>
+
+<div id="history-box" class="history-section">
+    <h3 style="margin-top: 0; color: var(--secondary);">My Saved Letters 📚</h3>
+    <div id="history-list">
+        <p style="font-size: 0.8rem; color: #aaa;">No letters saved yet...</p>
+    </div>
+    <button onclick="clearHistory()" style="background: #ffcfcf; color: #d66; padding: 5px 10px; font-size: 0.6rem; margin-top: 10px;">Clear All</button>
+</div>
+
+<div id="player"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+    let player;
+    let currentVidId = "";
+    let fullMessage = "";
+
+    window.onload = function() {
+        displayHistory();
+        const params = new URLSearchParams(window.location.search);
+        const dataRaw = params.get('l');
+        if(dataRaw) {
+            document.getElementById('maker-view').classList.add('hidden');
+            document.getElementById('history-box').classList.add('hidden');
+            document.getElementById('envelope-view').classList.remove('hidden');
+            
+            try {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(dataRaw))));
+                fullMessage = decoded.m;
+                currentVidId = decoded.v;
+            } catch(e) {
+                document.getElementById('display-text').innerText = "Broken link! 😿";
+            }
+        }
+    }
+
+    // This function animates the text letter by letter
+    function animateText() {
+        const container = document.getElementById('display-text');
+        container.innerHTML = ""; // Clear current text
+        
+        // Turn the message into an array of characters
+        const characters = fullMessage.split("");
+        
+        characters.forEach((char, index) => {
+            const span = document.createElement('span');
+            span.innerText = char;
+            span.classList.add('char');
+            // Delay each letter slightly more than the one before it
+            span.style.animationDelay = `${index * 0.05}s`; 
+            container.appendChild(span);
+        });
+    }
+
+    function createLink() {
+        const msg = document.getElementById('message').value;
+        const yt = document.getElementById('yt-link').value;
+        if(!msg) return alert("Write a message! 🌸");
+
+        const vidId = yt.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        const data = { m: msg, v: vidId ? vidId[1] : "" };
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        const link = window.location.origin + window.location.pathname + "?l=" + encoded;
+
+        document.getElementById('result-section').classList.remove('hidden');
+        document.getElementById('share-url').value = link;
+        saveToHistory(msg.substring(0, 20) + "...", link);
+    }
+
+    function saveToHistory(label, url) {
+        let history = JSON.parse(localStorage.getItem('letterHistory') || '[]');
+        history.unshift({ label, url, date: new Date().toLocaleDateString() });
+        localStorage.setItem('letterHistory', JSON.stringify(history));
+        displayHistory();
+    }
+
+    function displayHistory() {
+        let history = JSON.parse(localStorage.getItem('letterHistory') || '[]');
+        const list = document.getElementById('history-list');
+        if(history.length === 0) return;
+        list.innerHTML = history.map(item => `
+            <div class="history-item">
+                <span><strong>${item.label}</strong> (${item.date})</span>
+                <button class="copy-btn" onclick="copyToClipboard('${item.url}')">Copy Link</button>
+            </div>
+        `).join('');
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text);
+        alert("Link copied! 🎀");
+    }
+
+    function clearHistory() {
+        if(confirm("Delete all saved letters?")) {
+            localStorage.removeItem('letterHistory');
+            location.reload();
+        }
+    }
+
+    function openEnvelope() {
+        document.getElementById('envelope-view').classList.add('hidden');
+        document.getElementById('letter-view').classList.remove('hidden');
+        
+        // Start the text animation
+        animateText();
+
+        if (currentVidId) {
+            player = new YT.Player('player', {
+                height: '0', width: '0', videoId: currentVidId,
+                playerVars: { 'autoplay': 1, 'loop': 1, 'playlist': currentVidId },
+                events: { 'onReady': (e) => { e.target.playVideo(); } }
+            });
+        }
+    }
+</script>
+</body>
+</html>
